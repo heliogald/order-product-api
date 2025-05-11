@@ -1,4 +1,3 @@
-version: '3'
 services:
   db:
     image: postgres
@@ -12,6 +11,32 @@ services:
       POSTGRES_DB: orders_db
     volumes:
       - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  api:
+    build: .
+    container_name: orders-api
+    restart: always
+    ports:
+      - '3000:3000'
+    environment:
+      DATABASE_HOST: db
+      DATABASE_PORT: 5432
+      DATABASE_USER: postgres
+      DATABASE_PASSWORD: postgres
+      DATABASE_NAME: orders_db
+      JWT_SECRET: sua_chave_jwt_segura
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - .:/app
+      - /app/node_modules
+    command: npm run start
 
 volumes:
   pgdata:

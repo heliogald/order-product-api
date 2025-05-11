@@ -1,5 +1,5 @@
-// src/products/entities/product.entity.ts
-import { Entity, PrimaryGeneratedColumn, Column } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, OneToMany } from 'typeorm';
+import { OrderProduct } from '../../orders/entities/order-product.entity';
 
 @Entity()
 export class Product {
@@ -9,15 +9,12 @@ export class Product {
   @Column()
   nome: string;
 
-  @Column()
-  categoria: string;
-
-  @Column()
-  descricao: string;
-
-  @Column('decimal')
+  @Column({ type: 'decimal', precision: 10, scale: 2 })
   preco: number;
 
   @Column()
   quantidade_estoque: number;
+
+  @OneToMany(() => OrderProduct, orderProduct => orderProduct.produto)
+orderProducts?: OrderProduct[];
 }

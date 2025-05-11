@@ -16,7 +16,7 @@ import { LoggerMiddleware } from './middleware/logger.middleware';
     ConfigModule.forRoot({ isGlobal: true }),
     TypeOrmModule.forRoot({
       type: 'postgres',
-      host: 'localhost',
+      host: process.env.DATABASE_HOST || 'db',
       port: 5432,
       username: 'postgres',
       password: 'postgres',

@@ -1,17 +1,17 @@
-// src/orders/entities/order.entity.ts
-import { Entity, PrimaryGeneratedColumn, Column, ManyToMany, JoinTable } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, OneToMany } from 'typeorm';
+import { OrderProduct } from './order-product.entity';
 
 @Entity()
 export class Order {
   @PrimaryGeneratedColumn()
   id: number;
 
-  @Column('json')
-  produtos: { id: number; quantidade: number }[];
-
-  @Column('decimal')
+  @Column({ type: 'decimal', precision: 10, scale: 2 })
   total_pedido: number;
 
   @Column()
   status: 'Pendente' | 'Concluído' | 'Cancelado';
+
+  @OneToMany(() => OrderProduct, orderProduct => orderProduct.pedido, { cascade: true })
+  produtos: OrderProduct[];
 }
