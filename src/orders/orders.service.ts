@@ -1,72 +1,143 @@
-import { Injectable, BadRequestException } from '@nestjs/common';
+import { Injectable, BadRequestException, NotFoundException, InternalServerErrorException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Order } from './entities/order.entity';
 import { Product } from '../products/entities/product.entity';
 import { OrderProduct } from './entities/order-product.entity';
 import { CreateOrderDto } from './dto/create-order.dto';
+import { OrderStatus } from './entities/order.entity';
 
 @Injectable()
 export class OrdersService {
-  constructor(
-    @InjectRepository(Order) private orderRepo: Repository<Order>,
-    @InjectRepository(Product) private productRepo: Repository<Product>,
-    @InjectRepository(OrderProduct) private orderProductRepo: Repository<OrderProduct>,
-  ) {}
+    constructor(
+        @InjectRepository(Order)
+        private readonly orderRepo: Repository<Order>,
+        @InjectRepository(Product)
+        private readonly productRepo: Repository<Product>,
+        @InjectRepository(OrderProduct)
+        private readonly orderProductRepo: Repository<OrderProduct>,
+    ) {}
 
-  async create(dto: CreateOrderDto): Promise<Order> {
-    let total = 0;
-    const produtosPedido: OrderProduct[] = [];
+    async create(dto: CreateOrderDto): Promise<Order> {
+        const queryRunner = this.orderRepo.manager.connection.createQueryRunner();
 
-    for (const item of dto.produtos) {      
-      console.log(typeof item.produtoId, item.produtoId); 
-      const product = await this.productRepo.findOneBy({ id: item.produtoId });
-      if (!product) throw new BadRequestException('Produto não encontrado');
+        await queryRunner.connect();
+        await queryRunner.startTransaction();
 
-      if (product.quantidade_estoque < item.quantidade) {
-        throw new BadRequestException(`Estoque insuficiente para o produto ${product.nome}`);
-      }
+        try {
+            const orderProducts: OrderProduct[] = [];
+            let totalPedido = 0;
 
-      product.quantidade_estoque -= item.quantidade;
-      await this.productRepo.save(product);
+            // Processa cada item do pedido
+            for (const item of dto.produtos) {
+                const produto = await queryRunner.manager.findOne(Product, {
+                    where: { id: item.produtoId },
+                    lock: { mode: 'pessimistic_write' }
+                });
 
-      total += product.preco * item.quantidade;
+                if (!produto) {
+                    throw new NotFoundException(`Produto com ID ${item.produtoId} não encontrado`);
+                }
 
-      const orderProduct = this.orderProductRepo.create({
-        produto: product,
-        quantidade: item.quantidade,
-      });
+                if (produto.quantidade_estoque < item.quantidade) {
+                    throw new BadRequestException(
+                        `Estoque insuficiente para ${produto.nome} (ID: ${produto.id}). ` +
+                        `Disponível: ${produto.quantidade_estoque}, Solicitado: ${item.quantidade}`
+                    );
+                }
 
-      produtosPedido.push(orderProduct);
+                // Atualiza estoque
+                produto.quantidade_estoque -= item.quantidade;
+                await queryRunner.manager.save(produto);
+
+                // Calcula total
+                const subtotal = produto.preco * item.quantidade;
+                totalPedido += subtotal;
+
+                // Prepara relação
+                orderProducts.push(
+                    queryRunner.manager.create(OrderProduct, {
+                        produto,
+                        quantidade: item.quantidade,
+                        precoUnitario: produto.preco,
+                    })
+                );
+            }
+
+            // Cria o pedido
+            const pedido = queryRunner.manager.create(Order, {
+                total_pedido: totalPedido,
+                status: OrderStatus.PENDENTE,
+            });
+
+            const pedidoSalvo = await queryRunner.manager.save(pedido);
+
+            // Associa produtos ao pedido
+            await Promise.all(
+                orderProducts.map(op => {
+                    op.pedido = pedidoSalvo;
+                    return queryRunner.manager.save(OrderProduct, op);
+                })
+            );
+
+            // Commit da transação
+            await queryRunner.commitTransaction();
+
+            // Retorna pedido completo garantindo que não será null
+            return this.getOrderWithProducts(pedidoSalvo.id);
+        } catch (error) {
+            // Rollback em caso de erro
+            await queryRunner.rollbackTransaction();
+            throw new InternalServerErrorException('Falha ao criar pedido: ' + error.message);
+        } finally {
+            // Libera o queryRunner
+            await queryRunner.release();
+        }
     }
 
-    const pedido = this.orderRepo.create({
-      total_pedido: total,
-      status: 'Pendente',
-    });
-
-    const pedidoSalvo = await this.orderRepo.save(pedido);
-
-    for (const op of produtosPedido) {
-      op.pedido = pedidoSalvo;
-      await this.orderProductRepo.save(op);
+    async findAll(): Promise<Order[]> {
+        return this.orderRepo.find({
+            relations: ['produtos', 'produtos.produto'],
+            order: { id: 'DESC' },
+        });
     }
 
-    const pedidoComProdutos = await this.orderRepo.findOne({
-      where: { id: pedidoSalvo.id },
-      relations: ['produtos', 'produtos.produto'],
-    });
+    async updateStatus(id: number, status: OrderStatus): Promise<Order> {
+        const pedido = await this.getOrderWithProducts(id);
+        
+        // Lógica para atualização de status
+        if (pedido.status === OrderStatus.CONCLUIDO && status === OrderStatus.CANCELADO) {
+            await this.restoreStock(pedido);
+        } else if (pedido.status === OrderStatus.PENDENTE && status === OrderStatus.CANCELADO) {
+            await this.restoreStock(pedido);
+        }
 
-    if (!pedidoComProdutos) {
-      throw new Error('Erro ao buscar o pedido salvo com os produtos.');
+        pedido.status = status;
+        return this.orderRepo.save(pedido);
     }
 
-    return pedidoComProdutos;
-  }
+    private async getOrderWithProducts(id: number): Promise<Order> {
+        const order = await this.orderRepo.findOne({
+            where: { id },
+            relations: ['produtos', 'produtos.produto'],
+        });
 
-  async findAll(): Promise<Order[]> {
-    return this.orderRepo.find({
-      relations: ['produtos', 'produtos.produto'],
-    });
-  }
+        if (!order) {
+            throw new NotFoundException(`Pedido com ID ${id} não encontrado`);
+        }
+
+        return order;
+    }
+
+    private async restoreStock(order: Order): Promise<void> {
+        await Promise.all(
+            order.produtos.map(async (op) => {
+                await this.productRepo.increment(
+                    { id: op.produto.id },
+                    'quantidade_estoque',
+                    op.quantidade
+                );
+            })
+        );
+    }
 }

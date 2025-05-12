@@ -4,10 +4,12 @@ import { ApiProperty } from '@nestjs/swagger';
 
 class ProdutoPedidoDto {
   @ApiProperty({ example: 1, description: 'ID do produto' })
+  @Type(() => Number) // ✅ converte string para número
   @IsNumber()
   produtoId: number;
 
   @ApiProperty({ example: 2, description: 'Quantidade desejada' })
+  @Type(() => Number) // ✅ converte string para número
   @IsNumber()
   @IsPositive()
   quantidade: number;
