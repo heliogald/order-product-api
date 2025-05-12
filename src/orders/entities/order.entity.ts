@@ -4,7 +4,7 @@ import { OrderProduct } from './order-product.entity';
 export enum OrderStatus {
   PENDENTE = 'Pendente',
   CONCLUIDO = 'Concluído',
-  CANCELADO = 'Cancelado',
+  CANCELADO = 'Cancelado'
 }
 
 @Entity()
@@ -26,4 +26,10 @@ export class Order {
     default: OrderStatus.PENDENTE,
   })
   status: OrderStatus;
+
+  @Column({ type: 'timestamp', default: () => 'CURRENT_TIMESTAMP' })
+  data_criacao: Date;
+
+  @Column({ type: 'timestamp', nullable: true })
+  data_atualizacao: Date;
 }
