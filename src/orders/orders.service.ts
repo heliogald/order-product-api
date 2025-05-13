@@ -1,4 +1,4 @@
-import { Injectable, BadRequestException, NotFoundException, InternalServerErrorException } from '@nestjs/common';
+import { Injectable, BadRequestException, NotFoundException, InternalServerErrorException, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Order } from './entities/order.entity';
@@ -9,6 +9,8 @@ import { OrderStatus } from './entities/order.entity';
 
 @Injectable()
 export class OrdersService {
+  private readonly logger = new Logger(OrdersService.name);
+
   constructor(
     @InjectRepository(Order)
     private readonly orderRepo: Repository<Order>,
@@ -83,11 +85,14 @@ export class OrdersService {
       // Commit da transação
       await queryRunner.commitTransaction();
 
+      this.logger.log(`Pedido ${pedidoSalvo.id} criado com sucesso`);
+
       // Retorna pedido completo
       return this.getOrderWithProducts(pedidoSalvo.id);
     } catch (error) {
       // Rollback em caso de erro
       await queryRunner.rollbackTransaction();
+      this.logger.error(`Falha ao criar pedido: ${error.message}`, error.stack);
       throw new InternalServerErrorException('Falha ao criar pedido: ' + error.message);
     } finally {
       // Libera o queryRunner
@@ -96,6 +101,7 @@ export class OrdersService {
   }
 
   async findAll(): Promise<Order[]> {
+    this.logger.log('Buscando todos os pedidos');
     return this.orderRepo.find({
       relations: ['produtos', 'produtos.produto'],
       order: { id: 'DESC' },
@@ -108,9 +114,12 @@ export class OrdersService {
     // Valida transições de status
     this.validateStatusTransition(pedido.status, newStatus);
 
-    // Lógica específica para cancelamento
+    // Lógica específica para mudança de status
     if (newStatus === OrderStatus.CANCELADO) {
       await this.restoreStock(pedido);
+      this.logger.log(`Pedido ${id} cancelado. Estoque restaurado.`);
+    } else if (newStatus === OrderStatus.CONCLUIDO) {
+      this.logger.log(`Pedido ${id} concluído.`);
     }
 
     pedido.status = newStatus;
@@ -126,6 +135,7 @@ export class OrdersService {
     });
 
     if (!order) {
+      this.logger.warn(`Pedido com ID ${id} não encontrado`);
       throw new NotFoundException(`Pedido com ID ${id} não encontrado`);
     }
 
@@ -133,6 +143,7 @@ export class OrdersService {
   }
 
   private async restoreStock(order: Order): Promise<void> {
+    this.logger.log(`Restaurando estoque para pedido ${order.id}`);
     await Promise.all(
       order.produtos.map(async (op) => {
         await this.productRepo.increment(
@@ -140,21 +151,24 @@ export class OrdersService {
           'quantidade_estoque',
           op.quantidade
         );
+        this.logger.debug(`+${op.quantidade} unidades restauradas para produto ${op.produto.id}`);
       })
     );
   }
 
-    private validateStatusTransition(currentStatus: OrderStatus, newStatus: OrderStatus): void {
-        const validTransitions: Record<OrderStatus, OrderStatus[]> = {
-            [OrderStatus.PENDENTE]: [OrderStatus.CONCLUIDO, OrderStatus.CANCELADO],
-            [OrderStatus.CONCLUIDO]: [],
-            [OrderStatus.CANCELADO]: [],
-        };
+  private validateStatusTransition(currentStatus: OrderStatus, newStatus: OrderStatus): void {
+    const validTransitions: Record<OrderStatus, OrderStatus[]> = {
+      [OrderStatus.PENDENTE]: [OrderStatus.CONCLUIDO, OrderStatus.CANCELADO],
+      [OrderStatus.CONCLUIDO]: [],
+      [OrderStatus.CANCELADO]: [],
+    };
 
-        if (!validTransitions[currentStatus].includes(newStatus)) {
-            throw new BadRequestException(
-                `Transição de status inválida: de ${currentStatus} para ${newStatus}`
-            );
-        }
+    if (!validTransitions[currentStatus].includes(newStatus)) {
+      this.logger.warn(`Tentativa de transição inválida: ${currentStatus} -> ${newStatus}`);
+      throw new BadRequestException(
+        `Transição de status inválida: de ${currentStatus} para ${newStatus}. ` +
+        `Transições permitidas: ${validTransitions[currentStatus].join(', ') || 'nenhuma'}`
+      );
     }
+  }
 }
