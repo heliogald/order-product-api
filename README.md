@@ -36,24 +36,18 @@ src/
 
 ```bash
 git clone https://github.com/seu-usuario/order-product-api.git
+
 cd order-product-api
 
 ⚙️ Como Rodar o Projeto
+
 1. Instale as dependências
-festança
 
-Copiar
-
-Editar
 npm install
 2. Configure as variáveis de ambiente
+
 Crie um arquivo .env na raiz do projeto com o seguinte conteúdo:
 
-ambiente
-
-Copiar
-
-Editar
 DATABASE_HOST=localhost
 DATABASE_PORT=5432
 DATABASE_USER=postgres
@@ -67,42 +61,30 @@ JWT_EXPIRES_IN=3600s
 3. Gire as migrations (se aplicável)
 
 npm run typeorm migration:run
+
 4. Inicie a aplicação
-festança
 
-Copiar
-
-Editar
 npm run start:dev
 A API estará disponível em: http://localhost:3000
 
 📄 Documentação da API
+
 Acesse a documentação interativa Swagger em:
 
-festança
-
-Copiar
-
-Editar
 http://localhost:3000/api
+
 🧪 Como Rodar os Testes
+
 Execute os testes unitários com cobertura:
 
-festança
-
-Copiar
-
-Editar
 npm run test:cov
+
 Ou apenas os testes sem cobertura:
 
-festança
-
-Copiar
-
-Editar
 npm run test
+
 🔑 Rotas protegidas
+
 Rotas de produtos e pedidos são protegidas por autenticação JWT. Para acessá-las:
 
 Realizar login via/auth/login
@@ -124,7 +106,9 @@ npm run format	Formata o código com Prettier
 
 
 📌 Autor
+
 Feito por Hélio Galdino — heliogald@hotmail.com
 
 📜 Licença
+
 Este projeto está sob a licença MIT.
