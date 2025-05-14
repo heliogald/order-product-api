@@ -1,18 +1,18 @@
-// products.service.spec.ts
 import { Test, TestingModule } from '@nestjs/testing';
+import { ProductsService } from './products.service';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { Product } from './entities/product.entity';
-import { ProductsService } from './products.service';
+import { Repository } from 'typeorm';
+import { CreateProductDto } from './dto/create-product.dto';
 
 describe('ProductsService', () => {
   let service: ProductsService;
+  let repo: Repository<Product>;
 
-  const mockRepository = {
-    find: jest.fn(),
-    findOne: jest.fn(),
+  const mockRepo = {
+    create: jest.fn(),
     save: jest.fn(),
-    update: jest.fn(),
-    delete: jest.fn(),
+    findOneBy: jest.fn(),
   };
 
   beforeEach(async () => {
@@ -21,25 +21,63 @@ describe('ProductsService', () => {
         ProductsService,
         {
           provide: getRepositoryToken(Product),
-          useValue: mockRepository,
+          useValue: mockRepo,
         },
       ],
     }).compile();
 
     service = module.get<ProductsService>(ProductsService);
+    repo = module.get<Repository<Product>>(getRepositoryToken(Product));
   });
 
-  it('should be defined', () => {
-    expect(service).toBeDefined();
+  it('should create a product', async () => {
+    const dto: CreateProductDto = {
+      nome: 'Camiseta',
+      categoria: 'Roupas',
+      descricao: 'Camiseta de algodão',
+      preco: 29.9,
+      quantidade_estoque: 100,
+    };
+
+    const fakeProduct = { id: 1, ...dto };
+
+    mockRepo.create.mockReturnValue(fakeProduct);
+    mockRepo.save.mockResolvedValue(fakeProduct);
+
+    const result = await service.create(dto);
+
+    expect(mockRepo.create).toHaveBeenCalledWith(dto);
+    expect(mockRepo.save).toHaveBeenCalledWith(fakeProduct);
+    expect(result).toEqual(fakeProduct);
   });
 
-  describe('findAll', () => {
-    it('should return an array of products', async () => {
-      mockRepository.find.mockResolvedValue([{id: 1, name: 'Test Product'}]);
-      const result = await service.findAll();
-      expect(result).toEqual([{id: 1, name: 'Test Product'}]);
-    });
+  it('should find a product by id', async () => {
+    const fakeProduct = {
+      id: 1,
+      nome: 'Boné',
+      categoria: 'Acessórios',
+      descricao: 'Boné azul',
+      preco: 19.9,
+      quantidade_estoque: 50,
+    };
+
+  it('should return all products', async () => {
+  await service.create({
+    nome: 'Produto 1',
+    categoria: 'Categoria 1',
+    descricao: 'Descrição 1',
+    preco: 10,
+    quantidade_estoque: 5,
   });
 
-  // Adicione testes para outros métodos
+  const products = await service.findAll();
+  expect(products.length).toBeGreaterThan(0);
+});
+
+
+    mockRepo.findOneBy.mockResolvedValue(fakeProduct);
+
+    const result = await service.findOne(1);
+    expect(result).toEqual(fakeProduct);
+  });
 });
