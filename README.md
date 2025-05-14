@@ -1,114 +1,66 @@
-# 📦 Order Product API
+# Order Product API
 
-API RESTful desenvolvida com **NestJS** para gerenciamento de produtos e pedidos, incluindo autenticação JWT, CRUD de produtos, criação e listagem de pedidos, e controle de estoque.
+API para gerenciamento de pedidos e produtos desenvolvida com **NestJS**, **TypeORM** e **PostgreSQL**. O projeto utiliza **Docker** para facilitar a configuração do ambiente de desenvolvimento.
 
----
+## Tecnologias Utilizadas
 
-## 🚀 Tecnologias Utilizadas
+- Node.js
+- NestJS
+- TypeORM
+- PostgreSQL (via container Docker)
+- Docker e Docker Compose
+- JWT (autenticação)
+- Swagger (documentação)
+- Jest (testes unitários)
+- ESLint + Prettier (padrões de código)
 
-- **Node.js** & **TypeScript**
-- **NestJS** (estrutura modular e escalável)
-- **TypeORM** (ORM para banco relacional)
-- **PostgreSQL** (banco de dados relacional)
-- **JWT** (autenticação segura)
-- **Swagger** (documentação da API)
-- **Jest** & **Supertest** (testes unitários e de integração)
-- **Docker** (opcional, para ambiente isolado)
-- **Prettier / ESLint** (padronização de código)
+## Como rodar o projeto
 
----
+### Pré-requisitos
 
-## 📁 Estrutura do Projeto
+- [Docker](https://www.docker.com/)
+- [Docker Compose](https://docs.docker.com/compose/)
 
-src/
-│
-├── auth/ → Módulo de autenticação (login/registro)
-├── common/ → Middlewares e filtros de exceção
-├── orders/ → Módulo de pedidos
-├── products/ → Módulo de produtos
-├── main.ts → Arquivo principal
-└── app.module.ts → Módulo raiz
+### Passos
 
-
----
-
-## 📥 Como Clonar o Projeto
+1. Clone o repositório:
 
 ```bash
 git clone https://github.com/seu-usuario/order-product-api.git
-
 cd order-product-api
+```
 
-⚙️ Como Rodar o Projeto
+2. Suba os containers com Docker Compose:
 
-1. Instale as dependências
+```bash
+docker-compose up --build
+```
 
-npm install
-2. Configure as variáveis de ambiente
+A API estará disponível em `http://localhost:3000` e o banco de dados PostgreSQL em `localhost:5432`.
 
-Crie um arquivo .env na raiz do projeto com o seguinte conteúdo:
-
-DATABASE_HOST=localhost
-DATABASE_PORT=5432
-DATABASE_USER=postgres
-DATABASE_PASSWORD=sua_senha
-DATABASE_NAME=order_product_db
-
-JWT_SECRET=sua_chave_secreta
-JWT_EXPIRES_IN=3600s
-⚠️ Certifique-se de que o PostgreSQL está rodando e com o banco criado.
-
-3. Gire as migrations (se aplicável)
-
-npm run typeorm migration:run
-
-4. Inicie a aplicação
-
-npm run start:dev
-A API estará disponível em: http://localhost:3000
-
-📄 Documentação da API
+### Documentação da API
 
 Acesse a documentação interativa Swagger em:
 
+```
 http://localhost:3000/api
+```
 
-🧪 Como Rodar os Testes
+## Rodando os testes
 
-Execute os testes unitários com cobertura:
+Para rodar os testes automatizados com cobertura:
 
+```bash
+npm install
 npm run test:cov
+```
 
-Ou apenas os testes sem cobertura:
+## Observações
 
-npm run test
+- O projeto **não utiliza migrations**, pois o TypeORM está configurado para **sincronizar automaticamente** com o banco de dados ao subir os containers.
+- As entidades são criadas automaticamente no banco de dados com base nas classes TypeORM.
 
-🔑 Rotas protegidas
+---
 
-Rotas de produtos e pedidos são protegidas por autenticação JWT. Para acessá-las:
-
-Realizar login via/auth/login
-
-Copie o token JWT retornado
-
-Use esse token no header Authorization: Bearer <seu-token> nas demais rotas
-
-🧰 Comandos úteis
-
-Comando	Descrição
-
-npm run start	Inicia em modo produção
-npm run start:dev	Inicia em modo desenvolvimento (hot reload)
-npm run test	Executa os testes
-npm run test:cov	Executa os testes com relatório de cobertura
-npm run lint	Verifique se há problemas de fiapos
-npm run format	Formata o código com Prettier
-
-
-📌 Autor
-
-Feito por Hélio Galdino — heliogald@hotmail.com
-
-📜 Licença
-
-Este projeto está sob a licença MIT.
+> Teste técnico - Backend NestJS
+> Autor: Hélio Galdino
